@@ -23,6 +23,29 @@ function readEventPayload(event: { data: Record<string, unknown> }) {
 	return (maybePayload && typeof maybePayload === "object" ? (maybePayload as Record<string, unknown>) : event.data);
 }
 
+function extractToolsUsed(payload: Record<string, unknown>) {
+	const directToolsUsed = payload.tools_used;
+	if (Array.isArray(directToolsUsed)) {
+		return directToolsUsed as string[];
+	}
+
+	const summary = payload.tool_results_summary;
+	if (
+		summary &&
+		typeof summary === "object" &&
+		Array.isArray((summary as Record<string, unknown>).tools_used)
+	) {
+		return ((summary as Record<string, unknown>).tools_used as string[]);
+	}
+
+	const camelCaseToolsUsed = payload.toolsUsed;
+	if (Array.isArray(camelCaseToolsUsed)) {
+		return camelCaseToolsUsed as string[];
+	}
+
+	return [];
+}
+
 export function useStreamingChat() {
 	const {
 		addMessage,
@@ -67,11 +90,7 @@ export function useStreamingChat() {
 				}
 
 				if (event.event === "tools") {
-					const toolsUsed = Array.isArray(payload.tools_used)
-						? (payload.tools_used as string[])
-						: Array.isArray(payload.toolsUsed)
-							? (payload.toolsUsed as string[])
-							: [];
+					const toolsUsed = extractToolsUsed(payload);
 					setToolRunning(toolsUsed.length > 0);
 					updateLastAssistantMessage((assistantMessage) => ({
 						...assistantMessage,
@@ -102,11 +121,7 @@ export function useStreamingChat() {
 						}));
 					}
 
-					const toolsUsed = Array.isArray(payload.tools_used)
-						? (payload.tools_used as string[])
-						: Array.isArray(payload.tool_results_summary?.tools_used)
-							? (payload.tool_results_summary.tools_used as string[])
-						: [];
+					const toolsUsed = extractToolsUsed(payload);
 					if (toolsUsed.length > 0) {
 						updateLastAssistantMessage((assistantMessage) => ({
 							...assistantMessage,
